@@ -1,6 +1,9 @@
 # De-Anza-Marketplace
 Scam resistant marketplace for De Anza students
 
+## Try it out
+https://gemini.google.com/share/a45d0f6fea12
+
 ## Inspiration
 College students are frequent targets for scams on open platforms like Facebook Marketplace or Craigslist. We noticed that buying and selling textbooks, furniture, and electronics within the De Anza community was fragmented and risky. We wanted to create a safe, closed-loop economy where trust is established by default. Our inspiration came from wanting to merge the slick, easy-to-use interface of apps like Facebook Marketplace, Ebay, or Mercari with the institutional trust of a campus intranet.
 
