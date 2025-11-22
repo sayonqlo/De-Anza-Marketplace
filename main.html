@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>De Anza Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            min-height: 80vh;
+            position: relative; /* For positioning context if needed */
+        }
+        .product-tile {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .product-tile:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .mock-email-box {
+            background-color: #fff3cd; 
+            border: 1px solid #ffeeba; 
+            color: #856404; 
+        }
+        /* Mercari-style tile aesthetics */
+        .listing-card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .listing-image {
+            width: 100%;
+            height: 120px; /* Fixed height for image area */
+            object-fit: cover;
+            background-color: #e5e7eb; /* Placeholder color */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: #4b5563;
+        }
+        .listing-details {
+            padding: 0.75rem;
+            flex-grow: 1;
+        }
+        /* Auth Display Items */
+        .auth-display-item {
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .auth-display-item.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* New Toast Notification Styles */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            width: 90%;
+            max-width: 400px;
+            pointer-events: none; /* Let clicks pass through if no toast present */
+        }
+        .toast {
+            background: white;
+            padding: 12px 20px;
+            border-radius: 50px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease-out;
+            pointer-events: auto;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast.error {
+            border-left: 6px solid #ef4444;
+            color: #b91c1c;
+        }
+        .toast.success {
+            border-left: 6px solid #22c55e;
+            color: #15803d;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<div class="app-container">
+    <header class="flex justify-between items-center pb-4 border-b border-gray-200">
+        <h1 class="text-3xl font-extrabold text-blue-800">De Anza Marketplace</h1>
+        <div class="text-right flex flex-col items-end">
+            <!-- Auth items grouped and hidden by default -->
+            <p class="text-sm font-semibold auth-display-item" id="auth-status">Initializing...</p>
+            <p class="text-xs text-gray-500 auth-display-item">Session ID: <span id="user-id-display">...</span></p>
+            <p class="text-xs font-bold mt-1 auth-display-item" id="verification-status"></p>
+            
+            <!-- LOGOUT BUTTON HIDDEN BY DEFAULT -->
+            <button id="logout-btn" class="mt-2 py-1 px-3 text-xs rounded-full bg-red-500 hover:bg-red-600 text-white font-semibold transition duration-200 hidden" onclick="logoutUser()">Logout / New Session</button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="main-content" class="pt-4 space-y-6">
+
+        <!-- SECURITY/LOGIN GATE -->
+        <div id="security-gate" class="flex flex-col items-center justify-center p-8 bg-red-100 border border-red-300 rounded-xl space-y-4 text-center">
+            <svg class="w-12 h-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            <h2 class="text-xl font-bold text-red-700">Cybersecurity First: De Anza Login Required</h2>
+            <p class="text-sm text-gray-600">To prevent scams and ensure safety, you must verify your student status via 2FA/Magic Link linked to your official <code>@fhda.edu</code> email.</p>
+            
+            <!-- Step 1: Student ID Input -->
+            <div id="step-id-input" class="w-full max-w-sm space-y-3">
+                <input type="number" id="student-id-input" placeholder="Enter De Anza Student ID (e.g., 1234567)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                <button id="request-magic-link-btn" class="w-full py-3 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition duration-200" onclick="requestMagicLink()">
+                    Request Magic Link
+                </button>
+            </div>
+
+            <!-- Step 2: Code Input (Hidden initially) -->
+            <div id="step-code-input" class="w-full max-w-sm space-y-3 hidden">
+                <div id="mock-email-display" class="mock-email-box p-3 rounded-lg text-center font-semibold text-sm">
+                    <p>Code Sent to: <span id="target-email"></span></p>
+                    <p class="mt-1">Mock Code (for testing): <span id="mock-code" class="text-blue-700"></span></p>
+                </div>
+                <input type="number" id="verification-code-input" placeholder="Enter 6-digit verification code" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                <button id="verify-code-btn" class="w-full py-3 px-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold transition duration-200" onclick="verifyCode()">
+                    Verify Code and Access Marketplace
+                </button>
+            </div>
+        </div>
+
+        <!-- MARKETPLACE CONTENT (Hidden until verified) -->
+        <div id="marketplace-content" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Current Listings</h2>
+                <button class="py-2 px-4 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold transition duration-200" onclick="showCreateListingModal()">
+                    + Create Listing
+                </button>
+            </div>
+
+            <div id="listings-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <p id="listings-status" class="col-span-3 text-center text-gray-500">Loading listings...</p>
+                <!-- Product listings will be injected here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Creating a Listing -->
+    <div id="create-listing-modal" class="fixed inset-0 bg-black bg-opacity-75 hidden flex justify-center items-center p-4 z-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md space-y-4">
+            <h3 class="text-2xl font-bold text-blue-800">List an Item</h3>
+            <input type="text" id="item-title" placeholder="Item Title (e.g., Used Calculus Textbook)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            <input type="number" id="item-price" placeholder="Price (USD)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            <textarea id="item-description" placeholder="Description and contact info (e.g., Condition, Meetup spot)" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+            
+            <div class="flex justify-end space-x-3">
+                <button class="py-2 px-4 rounded-lg text-gray-600 hover:text-gray-900 transition" onclick="hideCreateListingModal()">Cancel</button>
+                <button class="py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition" onclick="createListing()">Post Listing</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Listing Details -->
+    <div id="listing-details-modal" class="fixed inset-0 bg-black bg-opacity-75 hidden flex justify-center items-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <!-- Image Area -->
+            <div id="detail-image" class="w-full h-64 bg-gray-200 bg-cover bg-center"></div>
+            
+            <!-- Content -->
+            <div class="p-6 overflow-y-auto">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 id="detail-title" class="text-2xl font-bold text-gray-800 leading-tight"></h3>
+                    <span id="detail-price" class="text-2xl font-bold text-green-600 bg-green-50 px-3 py-1 rounded-lg"></span>
+                </div>
+                
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Description & Details</h4>
+                        <p id="detail-description" class="text-gray-700 leading-relaxed mt-2"></p>
+                    </div>
+                    
+                    <div class="flex items-center justify-between pt-6 border-t border-gray-100">
+                         <div class="text-sm text-gray-500">
+                            <p id="detail-seller" class="font-medium text-gray-700"></p>
+                            <p id="detail-date" class="text-xs"></p>
+                         </div>
+                         <button class="py-2 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5" onclick="alertUser('Contact feature coming soon! (Chat Integration)', false)">
+                            Contact Seller
+                         </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Close Button Footer -->
+            <div class="bg-gray-50 p-4 border-t border-gray-100 text-right">
+                <button class="text-gray-500 hover:text-gray-800 font-semibold px-4 py-2 rounded hover:bg-gray-100 transition" onclick="hideListingDetails()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase and App Script -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { 
+        getFirestore, doc, setDoc, updateDoc, deleteDoc, getDoc, onSnapshot, collection, query, serverTimestamp, setLogLevel, deleteField, addDoc
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // IMPORTANT: Canvas environment variables
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    
+    // Global Firebase instances
+    let app, db, auth;
+    let userId = '';
+    let isAuthReady = false;
+    let userProfile = null;
+    let listingsUnsubscribe = null;
+    
+    // Firestore Collection Paths
+    const LISTINGS_COLLECTION = `/artifacts/${appId}/public/data/marketplaceListings`;
+    const PROFILE_DATA_PATH = `/artifacts/${appId}/users`;
+    
+    // UI Elements
+    const authStatus = document.getElementById('auth-status');
+    const userIdDisplay = document.getElementById('user-id-display');
+    const verificationStatus = document.getElementById('verification-status');
+    const securityGate = document.getElementById('security-gate');
+    const marketplaceContent = document.getElementById('marketplace-content');
+    const createListingModal = document.getElementById('create-listing-modal');
+    const listingDetailsModal = document.getElementById('listing-details-modal'); // New Modal
+    const listingsGrid = document.getElementById('listings-grid');
+    const listingsStatus = document.getElementById('listings-status');
+    const authDisplayItems = document.querySelectorAll('.auth-display-item');
+    const toastContainer = document.getElementById('toast-container');
+    
+    // 2FA Flow Elements
+    const stepIdInput = document.getElementById('step-id-input');
+    const studentIdInput = document.getElementById('student-id-input');
+    const stepCodeInput = document.getElementById('step-code-input');
+    const targetEmailDisplay = document.getElementById('target-email');
+    const mockCodeDisplay = document.getElementById('mock-code');
+    const verificationCodeInput = document.getElementById('verification-code-input');
+    const logoutBtn = document.getElementById('logout-btn');
+
+
+    // --- Utility Functions ---
+
+    /** Improved Toast Notification */
+    function alertUser(message, isError = false) {
+        const toast = document.createElement('div');
+        toast.className = `toast ${isError ? 'error' : 'success'}`;
+        toast.textContent = message;
+        
+        toastContainer.appendChild(toast);
+        
+        // Trigger animation
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 4000);
+    }
+    
+    /** Toggles between the Security Gate and the Marketplace UI */
+    function setAppState(isVerified) {
+        if (isVerified) {
+            securityGate.classList.add('hidden');
+            marketplaceContent.classList.remove('hidden');
+            verificationStatus.textContent = '✅ De Anza Verified';
+            verificationStatus.classList.remove('text-red-500');
+            verificationStatus.classList.add('text-green-600');
+            listenToListings();
+        } else {
+            securityGate.classList.remove('hidden');
+            marketplaceContent.classList.add('hidden');
+            verificationStatus.textContent = '❌ Unverified';
+            verificationStatus.classList.remove('text-green-600');
+            verificationStatus.classList.add('text-red-500');
+            
+            // Ensure we are back at step 1 of verification
+            stepIdInput.classList.remove('hidden');
+            stepCodeInput.classList.add('hidden');
+            stepCodeInput.classList.remove('flex');
+            
+            if (listingsUnsubscribe) listingsUnsubscribe();
+        }
+    }
+    
+    /** Hides the create listing modal */
+    window.hideCreateListingModal = function() {
+        createListingModal.classList.add('hidden');
+        document.getElementById('item-title').value = '';
+        document.getElementById('item-price').value = '';
+        document.getElementById('item-description').value = '';
+    }
+
+    /** Shows the create listing modal */
+    window.showCreateListingModal = function() {
+        if (!userProfile || !userProfile.isVerified) {
+            alertUser('You must be verified to create a listing.', true);
+            return;
+        }
+        createListingModal.classList.remove('hidden');
+    }
+    
+    /** Shows the detailed view of a listing */
+    window.showListingDetails = function(data) {
+        // Populate fields
+        const imagePlaceholderText = data.title ? data.title.substring(0, 10) : 'Item';
+        const imageURL = `https://placehold.co/800x600/f87171/ffffff?text=${imagePlaceholderText}`;
+        
+        document.getElementById('detail-image').style.backgroundImage = `url('${imageURL}')`;
+        document.getElementById('detail-title').textContent = data.title;
+        document.getElementById('detail-price').textContent = `$${data.price}`;
+        document.getElementById('detail-description').textContent = data.description || 'No description provided.';
+        document.getElementById('detail-seller').textContent = `Seller: ${data.sellerId.substring(0, 8)}...`;
+        document.getElementById('detail-date').textContent = data.timestamp ? `Posted on ${new Date(data.timestamp.toDate()).toLocaleDateString()}` : 'Just now';
+        
+        listingDetailsModal.classList.remove('hidden');
+    }
+
+    /** Hides the listing details modal */
+    window.hideListingDetails = function() {
+        listingDetailsModal.classList.add('hidden');
+    }
+
+
+    // --- Firebase and Auth Initialization ---
+
+    async function initFirebase() {
+        if (!firebaseConfig) {
+            alertUser("Error: Firebase configuration is missing.", true);
+            console.error("Firebase config is missing.");
+            return;
+        }
+        
+        try {
+            setLogLevel('debug');
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // USER DETECTED: Show auth details and logout button
+                    userId = user.uid;
+                    isAuthReady = true;
+                    userIdDisplay.textContent = userId.substring(0, 8) + '...';
+                    
+                    authDisplayItems.forEach(el => el.classList.add('visible'));
+                    logoutBtn.classList.remove('hidden');
+                    
+                    await loadUserProfile();
+                } else {
+                    // NO USER DETECTED: Hide everything
+                    userIdDisplay.textContent = '';
+                    authStatus.textContent = 'Starting Session...';
+                    verificationStatus.textContent = '';
+                    
+                    authDisplayItems.forEach(el => el.classList.remove('visible'));
+                    logoutBtn.classList.add('hidden');
+                    
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                }
+            });
+        } catch (error) {
+            authStatus.textContent = `Auth Failed`;
+            console.error("Firebase Init Error:", error);
+        }
+    }
+    
+    /** Logs out the current Firebase user and triggers a new anonymous login */
+    window.logoutUser = async function() {
+        if (!auth) {
+            alertUser("Authentication service not ready.", true);
+            return;
+        }
+        
+        // Hide info immediately on click to prevent "flash" of old data
+        authDisplayItems.forEach(el => el.classList.remove('visible'));
+        logoutBtn.classList.add('hidden');
+        
+        // Stop listening to listings before logging out
+        if (listingsUnsubscribe) {
+            listingsUnsubscribe();
+            listingsUnsubscribe = null;
+        }
+        
+        try {
+            // CRITICAL FIX: Explicitly delete the verification data for the current user.
+            if (userId) {
+                const profileRef = doc(db, PROFILE_DATA_PATH, userId, 'verification', 'data');
+                await deleteDoc(profileRef); 
+            }
+
+            await signOut(auth);
+            alertUser("Session reset. Starting new session...", false);
+            
+            // Reset local UI State and Inputs
+            document.getElementById('student-id-input').value = '';
+            document.getElementById('verification-code-input').value = '';
+            setAppState(false); // This resets screens to Step 1
+            userProfile = null;
+            
+        } catch (error) {
+            console.error("Error signing out:", error);
+            alertUser(`Logout failed: ${error.message}`, true);
+        }
+    }
+
+    // --- Profile/Verification Management (Cybersecurity Focus) ---
+
+    function getProfileRef() {
+        // Private document: /artifacts/{appId}/users/{userId}/verification/data
+        return doc(db, PROFILE_DATA_PATH, userId, 'verification', 'data');
+    }
+
+    async function loadUserProfile() {
+        const profileRef = getProfileRef();
+        try {
+            const docSnap = await getDoc(profileRef);
+            if (docSnap.exists()) {
+                userProfile = docSnap.data();
+                setAppState(userProfile.isVerified === true);
+                if (userProfile.isVerified === true) {
+                    // Cleanup any pending mock verification code (just in case)
+                    await updateDoc(profileRef, { verificationCode: deleteField() }).catch(() => {});
+                }
+            } else {
+                userProfile = { isVerified: false };
+                setAppState(false);
+            }
+            authStatus.textContent = `Authenticated`;
+        } catch (error) {
+            console.error("Error loading profile:", error);
+            alertUser("Error loading profile data.", true);
+            setAppState(false);
+        }
+    }
+    
+    /** Step 1: Request Magic Link (Simulated) */
+    window.requestMagicLink = async function() {
+        const studentId = studentIdInput.value.trim();
+        if (!studentId || studentId.length < 5) {
+            alertUser("Please enter a valid Student ID.", true);
+            return;
+        }
+
+        const email = `${studentId}@fhda.edu`;
+        const mockCode = Math.floor(100000 + Math.random() * 900000); // 6-digit code
+
+        const profileRef = getProfileRef();
+        try {
+            // Store the mock code in Firestore (simulating sending the link)
+            await setDoc(profileRef, { 
+                email: email, 
+                verificationCode: mockCode,
+                isVerified: false
+            }, { merge: true });
+
+            // Update UI to show code input
+            targetEmailDisplay.textContent = email;
+            mockCodeDisplay.textContent = mockCode; // Display mock code for testing
+            stepIdInput.classList.add('hidden');
+            stepCodeInput.classList.remove('hidden'); 
+            stepCodeInput.classList.add('flex', 'flex-col', 'items-center');
+            alertUser(`Link Sent to ${email}`, false);
+            verificationCodeInput.focus();
+
+        } catch (error) {
+            console.error("Error simulating magic link:", error);
+            alertUser("Failed to request code. Try again.", true);
+        }
+    }
+
+    /** Step 2: Verify Code (2FA Simulation) */
+    window.verifyCode = async function() {
+        const inputCode = verificationCodeInput.value.trim();
+        if (!inputCode) {
+            alertUser("Please enter the verification code.", true);
+            return;
+        }
+
+        const profileRef = getProfileRef();
+        try {
+            const docSnap = await getDoc(profileRef);
+            if (!docSnap.exists()) {
+                alertUser("Verification data missing. Please request a new link.", true);
+                return;
+            }
+
+            const data = docSnap.data();
+            if (data.verificationCode && data.verificationCode.toString() === inputCode) {
+                // SUCCESS: Mark as verified and remove code
+                await updateDoc(profileRef, { 
+                    isVerified: true,
+                    verificationCode: deleteField(), // Security cleanup
+                    verifiedAt: serverTimestamp()
+                });
+                alertUser("Verified! Welcome.", false);
+                await loadUserProfile(); // Load updated profile and switch UI
+            } else {
+                alertUser("Invalid code. Please try again.", true);
+            }
+
+        } catch (error) {
+            console.error("Error verifying code:", error);
+            alertUser("Verification failed due to an error.", true);
+        }
+    }
+
+    // --- Listing Management ---
+
+    function listenToListings() {
+        if (listingsUnsubscribe) listingsUnsubscribe();
+
+        const q = query(collection(db, LISTINGS_COLLECTION));
+        
+        listingsUnsubscribe = onSnapshot(q, (snapshot) => {
+            listingsGrid.innerHTML = '';
+            if (snapshot.empty) {
+                listingsStatus.textContent = "No listings found. Be the first to post!";
+                listingsGrid.appendChild(listingsStatus);
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const listingEl = renderListing(doc.id, data);
+                listingsGrid.appendChild(listingEl);
+            });
+        }, (error) => {
+            console.error("Error listening to listings:", error);
+            listingsGrid.innerHTML = `<p class="col-span-3 text-red-500">Error loading listings.</p>`;
+        });
+    }
+    
+    function renderListing(id, data) {
+        const tile = document.createElement('div');
+        tile.className = 'product-tile listing-card shadow-lg hover:shadow-xl';
+        
+        // Use a placeholder image to simulate Mercari style
+        const imagePlaceholderText = data.title ? data.title.substring(0, 10) : 'Item';
+        const imageURL = `https://placehold.co/400x300/f87171/ffffff?text=${imagePlaceholderText}`;
+
+        const priceBadgeColor = data.price > 100 ? 'bg-purple-500' : 'bg-orange-500';
+
+        tile.innerHTML = `
+            <div class="listing-image" style="background-image: url('${imageURL}'); background-size: cover; background-position: center;">
+                <span class="text-sm font-bold text-gray-800 bg-white bg-opacity-80 px-2 py-1 rounded">${data.title}</span>
+            </div>
+            <div class="listing-details flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-lg font-bold truncate">${data.title}</h4>
+                        <span class="badge ${priceBadgeColor} text-white">$${data.price}</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2 line-clamp-2">${data.description}</p>
+                </div>
+                <div class="flex justify-between items-center text-xs text-gray-400 mt-2">
+                    <span>Seller: ${data.sellerId.substring(0, 6)}...</span>
+                    <span>${data.timestamp ? new Date(data.timestamp.toDate()).toLocaleDateString() : 'Unknown'}</span>
+                </div>
+            </div>
+        `;
+
+        // Pass the entire data object to the details function
+        tile.onclick = () => showListingDetails(data);
+
+        return tile;
+    }
+
+    window.createListing = async function() {
+        const title = document.getElementById('item-title').value.trim();
+        const price = document.getElementById('item-price').value.trim();
+        const description = document.getElementById('item-description').value.trim();
+
+        if (!title || !price || !description) {
+            alertUser("Please fill in all fields.", true);
+            return;
+        }
+
+        const listingData = {
+            title: title,
+            price: parseFloat(price),
+            description: description,
+            sellerId: userId,
+            timestamp: serverTimestamp(),
+            // Mock data for display purposes
+            category: 'Textbooks', 
+            condition: 'Used - Good'
+        };
+
+        try {
+            // Public collection: /artifacts/{appId}/public/data/marketplaceListings
+            await addDoc(collection(db, LISTINGS_COLLECTION), listingData);
+            alertUser("Listing successfully posted!", false);
+            hideCreateListingModal();
+        } catch (error) {
+            console.error("Error creating listing:", error);
+            alertUser("Failed to post listing. Check console for details.", true);
+        }
+    }
+    
+    // Initialize the application on load
+    if (firebaseConfig) {
+        initFirebase();
+    } else {
+        // authStatus.textContent = "Configuration Error."; // Removed to prevent clutter if init fails silently
+        console.error("Firebase config is globally unavailable.");
+    }
+</script>
+</body>
+</html>
